@@ -49,9 +49,10 @@ export default function RegisterScreen() {
 
         setIsLoading(true);
         try {
-            await register(username, email, password);
-            router.replace('/(tabs)');
+            await register(username, email, password, confirmPassword);
+            router.replace('/login');
         } catch (error: any) {
+            console.log(error)
             Alert.alert('Registration Failed', error.message || 'Please try again');
         } finally {
             setIsLoading(false);

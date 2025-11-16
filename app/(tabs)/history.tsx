@@ -1,7 +1,7 @@
 import { RecordingDetailModal } from '@/components/RecordingDetailModal';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors, getEmotionColor, UniversalColors } from '@/constants/theme';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { apiService, Recording } from '@/services/api';
 import React, { useEffect, useState } from 'react';
 import {
@@ -19,13 +19,16 @@ import {
 const { width } = Dimensions.get('window');
 
 export default function HistoryScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useThemeContext();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [statistics, setStatistics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(50))[0];
+
+  // Get current theme colors
+  const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
     loadData();
@@ -106,34 +109,6 @@ export default function HistoryScreen() {
     loadData();
   };
 
-  const getEmotionColor = (emotion: string): string => {
-    const colors: Record<string, string> = {
-      happy: '#f59e0b',
-      sad: '#6366f1',
-      angry: '#ef4444',
-      neutral: '#6b7280',
-      calm: '#3b82f6',
-      fearful: '#8b5cf6',
-      disgust: '#10b981',
-      surprised: '#f97316',
-    };
-    return colors[emotion.toLowerCase()] || '#6b7280';
-  };
-
-  // const getEmotionGradient = (emotion: string): string[] => {
-  //   const gradients: Record<string, string[]> = {
-  //     happy: ['#fbbf24', '#f59e0b'],
-  //     sad: ['#818cf8', '#6366f1'],
-  //     angry: ['#f87171', '#ef4444'],
-  //     neutral: ['#9ca3af', '#6b7280'],
-  //     calm: ['#60a5fa', '#3b82f6'],
-  //     fearful: ['#a78bfa', '#8b5cf6'],
-  //     disgust: ['#34d399', '#10b981'],
-  //     surprised: ['#fb923c', '#f97316'],
-  //   };
-  //   return gradients[emotion.toLowerCase()] || ['#9ca3af', '#6b7280'];
-  // };
-
   const getEmotionEmoji = (emotion: string): string => {
     const emojis: Record<string, string> = {
       happy: '😊',
@@ -168,19 +143,19 @@ export default function HistoryScreen() {
       style={[
         styles.statCard, 
         { 
-          backgroundColor: Colors[colorScheme ?? 'light'].card,
+          backgroundColor: colors.card,
           transform: [{ translateY: slideAnim }],
           opacity: fadeAnim,
         }
       ]}
     >
-      <View style={[styles.statIconContainer, { backgroundColor: Colors[colorScheme ?? 'light'].tint + '20' }]}>
-        <IconSymbol name={icon} size={24} color={Colors[colorScheme ?? 'light'].tint} />
+      <View style={[styles.statIconContainer, { backgroundColor: colors.tint + '20' }]}>
+        <IconSymbol name={icon} size={24} color={colors.tint} />
       </View>
-      <Text style={[styles.statValue, { color: Colors[colorScheme ?? 'light'].text }]}>
+      <Text style={[styles.statValue, { color: colors.text }]}>
         {value}
       </Text>
-      <Text style={[styles.statLabel, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+      <Text style={[styles.statLabel, { color: colors.tabIconDefault }]}>
         {label}
       </Text>
     </Animated.View>
@@ -201,7 +176,7 @@ export default function HistoryScreen() {
       }}
     >
       <TouchableOpacity
-        style={[styles.recordingCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}
+        style={[styles.recordingCard, { backgroundColor: colors.card }]}
         activeOpacity={0.8}
         onPress={() => handleRecordingPress(item)}
       >
@@ -210,8 +185,8 @@ export default function HistoryScreen() {
             style={[
               styles.emojiCircle, 
               { 
-                backgroundColor: getEmotionColor(item.latest_emotion?.emotion || 'neutral') + '20',
-                borderColor: getEmotionColor(item.latest_emotion?.emotion || 'neutral') + '40',
+                backgroundColor: getEmotionColor(item.latest_emotion?.emotion || 'neutral', 0.2),
+                borderColor: getEmotionColor(item.latest_emotion?.emotion || 'neutral', 0.4),
               }
             ]}
           >
@@ -221,10 +196,10 @@ export default function HistoryScreen() {
           </View>
           
           <View style={styles.recordingInfo}>
-            <Text style={[styles.recordingEmotion, { color: Colors[colorScheme ?? 'light'].text }]}>
+            <Text style={[styles.recordingEmotion, { color: colors.text }]}>
               {item.latest_emotion?.emotion?.toUpperCase() || 'UNKNOWN'}
             </Text>
-            <Text style={[styles.recordingTime, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+            <Text style={[styles.recordingTime, { color: colors.tabIconDefault }]}>
               {formatDate(item.uploaded_at)}
             </Text>
           </View>
@@ -232,7 +207,7 @@ export default function HistoryScreen() {
 
         {item.latest_emotion && (
           <View style={styles.confidenceSection}>
-            <View style={[styles.confidenceBadge, { backgroundColor: getEmotionColor(item.latest_emotion.emotion) + '20' }]}>
+            <View style={[styles.confidenceBadge, { backgroundColor: getEmotionColor(item.latest_emotion.emotion, 0.2) }]}>
               <Text style={[styles.confidenceText, { color: getEmotionColor(item.latest_emotion.emotion) }]}>
                 {item.latest_emotion.confidence.toFixed(0)}%
               </Text>
@@ -240,7 +215,7 @@ export default function HistoryScreen() {
             <IconSymbol 
               name="chevron.right" 
               size={16} 
-              color={Colors[colorScheme ?? 'light'].tabIconDefault} 
+              color={colors.tabIconDefault} 
             />
           </View>
         )}
@@ -250,9 +225,9 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-        <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-        <Text style={[styles.loadingText, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+        <Text style={[styles.loadingText, { color: colors.tabIconDefault }]}>
           Loading your journey...
         </Text>
       </View>
@@ -260,7 +235,7 @@ export default function HistoryScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View 
         style={[
           styles.header,
@@ -270,10 +245,10 @@ export default function HistoryScreen() {
           }
         ]}
       >
-        <Text style={[styles.title, { color: Colors[colorScheme ?? 'light'].text }]}>
+        <Text style={[styles.title, { color: colors.text }]}>
           Your Emotional Journey
         </Text>
-        <Text style={[styles.subtitle, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+        <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
           Track your emotional wellness over time
         </Text>
       </Animated.View>
@@ -287,21 +262,21 @@ export default function HistoryScreen() {
               style={[
                 styles.statCard, 
                 { 
-                  backgroundColor: Colors[colorScheme ?? 'light'].card,
+                  backgroundColor: colors.card,
                   transform: [{ translateY: slideAnim }],
                   opacity: fadeAnim,
                 }
               ]}
             >
-              <View style={[styles.statIconContainer, { backgroundColor: getEmotionColor(statistics.emotion_statistics[0].emotion) + '20' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: getEmotionColor(statistics.emotion_statistics[0].emotion, 0.2) }]}>
                 <Text style={[styles.topEmotionEmoji, { fontSize: 20 }]}>
                   {getEmotionEmoji(statistics.emotion_statistics[0].emotion)}
                 </Text>
               </View>
-              <Text style={[styles.statValue, { color: Colors[colorScheme ?? 'light'].text }]}>
+              <Text style={[styles.statValue, { color: colors.text }]}>
                 {statistics.emotion_statistics[0].emotion}
               </Text>
-              <Text style={[styles.statLabel, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+              <Text style={[styles.statLabel, { color: colors.tabIconDefault }]}>
                 Most Frequent
               </Text>
             </Animated.View>
@@ -318,14 +293,14 @@ export default function HistoryScreen() {
           }
         ]}
       >
-        <Text style={[styles.listTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
+        <Text style={[styles.listTitle, { color: colors.text }]}>
           Recent Recordings
         </Text>
         <View style={styles.listHeaderRight}>
-          <Text style={[styles.recordingsCount, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+          <Text style={[styles.recordingsCount, { color: colors.tabIconDefault }]}>
             {recordings.length}
           </Text>
-          <IconSymbol name="list.bullet" size={18} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
+          <IconSymbol name="list.bullet" size={18} color={colors.tabIconDefault} />
         </View>
       </Animated.View>
 
@@ -338,8 +313,8 @@ export default function HistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors[colorScheme ?? 'light'].tint}
-            colors={[Colors[colorScheme ?? 'light'].tint]}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -350,13 +325,13 @@ export default function HistoryScreen() {
               { opacity: fadeAnim }
             ]}
           >
-            <View style={[styles.emptyIcon, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-              <IconSymbol name="waveform.path" size={48} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.card }]}>
+              <IconSymbol name="waveform.path" size={48} color={colors.tabIconDefault} />
             </View>
-            <Text style={[styles.emptyText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            <Text style={[styles.emptyText, { color: colors.text }]}>
               No recordings yet
             </Text>
-            <Text style={[styles.emptySubtext, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+            <Text style={[styles.emptySubtext, { color: colors.tabIconDefault }]}>
               Start recording to track your emotional journey
             </Text>
           </Animated.View>
@@ -414,11 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     marginHorizontal: 6,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    elevation: 8,
   },
   statIconContainer: {
     width: 48,
@@ -434,7 +405,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     textAlign: 'center',
     opacity: 0.8,
@@ -446,7 +417,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   listHeaderRight: {
     flexDirection: 'row',
@@ -472,11 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    elevation: 4,
   },
   recordingLeft: {
     flexDirection: 'row',
@@ -534,11 +501,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
+    elevation: 4,
+    shadowColor: UniversalColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 6,
   },
   emptyText: {
     fontSize: 20,

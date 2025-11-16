@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
+import Constants from "expo-constants";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
-
+const API_BASE_URL = Constants?.expoConfig?.extra?.API_URL;
 export interface EmotionAnalysis {
     id: number;
     emotion: string;
@@ -38,7 +38,7 @@ class ApiService {
     constructor() {
         this.client = axios.create({
             baseURL: API_BASE_URL,
-            timeout: 15000,
+            timeout: 30000,
         });
 
         this.client.interceptors.request.use(this.attachToken);
@@ -95,6 +95,16 @@ class ApiService {
         return Promise.reject(error);
     };
 
+    // change password
+    async changePassword(passwordData: {
+        current_password: string;
+        new_password: string;
+        confirm_password: string;
+    }) {
+        const response = await this.client.post('/auth/change_password/', passwordData);
+        return response.data;
+    }
+
     // Upload and analyze audio
     async uploadAndAnalyze(audioUri: string): Promise<AnalysisResponse> {
         const form = new FormData();
@@ -150,9 +160,6 @@ class ApiService {
 
     async logout() {
         const refresh = await AsyncStorage.getItem("refresh_token");
-        
-        await AsyncStorage.removeItem("auth_token");
-        await AsyncStorage.removeItem("refresh_token");
 
         return await this.client.post('/auth/logout/', { refresh });
     }

@@ -1,11 +1,12 @@
-
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Recording } from '@/services/api';
-import React, { useEffect } from 'react';
+import { Colors, getEmotionColor, UniversalColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { apiService, Recording } from '@/services/api';
+import { formatDate } from '@/utils/formatDate';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Animated,
     Dimensions,
     Modal,
@@ -34,80 +35,71 @@ export function RecordingDetailModal({
     onDelete,
     onReanalyze,
 }: RecordingDetailModalProps) {
-    const colorScheme = useColorScheme();
+    const { colorScheme } = useTheme();
     const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const backdropAnim = React.useRef(new Animated.Value(0)).current;
+    
+    const colors = Colors[colorScheme ?? 'light'];
+
+    const [detailedRecording, setDetailedRecording] = useState<Recording | null>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (visible && recording) {
+            loadRecordingDetails(recording.id);
+        } else {
+            setDetailedRecording(null);
+            setError(null);
+        }
+    }, [visible, recording]);
 
     useEffect(() => {
         if (visible) {
             Animated.parallel([
                 Animated.timing(backdropAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
                 }),
                 Animated.spring(slideAnim, {
-                toValue: 0,
-                tension: 60,
-                friction: 10,
-                useNativeDriver: true,
+                    toValue: 0,
+                    tension: 60,
+                    friction: 10,
+                    useNativeDriver: true,
                 }),
-        ]).start();
+            ]).start();
         } else {
-        Animated.parallel([
-            Animated.timing(backdropAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-            }),
-            Animated.timing(slideAnim, {
-            toValue: SCREEN_HEIGHT,
-            duration: 250,
-            useNativeDriver: true,
-            }),
-        ]).start();
+            Animated.parallel([
+                Animated.timing(backdropAnim, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(slideAnim, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+            ]).start();
         }
-    }, [visible]);
+    }, [visible, slideAnim, backdropAnim]);
 
-    const getEmotionColor = (emotion: string): string => {
-        const colors: Record<string, string> = {
-            happy: '#f59e0b',
-            sad: '#6366f1',
-            angry: '#ef4444',
-            neutral: '#6b7280',
-            calm: '#3b82f6',
-            fearful: '#8b5cf6',
-            disgust: '#10b981',
-            surprised: '#f97316',
-        };
-        return colors[emotion?.toLowerCase()] || '#6b7280';
+    const loadRecordingDetails = async (recordingId: number) => {
+        try {
+            setIsLoadingDetails(true);
+            setError(null);
+            const recordingDetails = await apiService.getRecording(recordingId);
+            setDetailedRecording(recordingDetails);
+        } catch (error: any) {
+            console.error('Failed to load recording details:', error);
+            setError('Failed to load recording details');
+            Alert.alert('Error', 'Failed to load recording details');
+        } finally {
+            setIsLoadingDetails(false);
+        }
     };
 
-    const getEmotionEmoji = (emotion: string): string => {
-        const emojis: Record<string, string> = {
-            happy: '😊',
-            sad: '😢',
-            angry: '😠',
-            neutral: '😐',
-            calm: '😌',
-            fearful: '😨',
-            disgust: '🤢',
-            surprised: '😲',
-        };
-        return emojis[emotion?.toLowerCase()] || '😐';
-    };
-
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
 
     const handleBackdropPress = () => {
         onClose();
@@ -124,6 +116,28 @@ export function RecordingDetailModal({
             onReanalyze(recording.id);
         }
     };
+
+    const handleRetry = () => {
+        if (recording) {
+            loadRecordingDetails(recording.id);
+        }
+    };
+     const getEmotionEmoji = (emotion: string): string => {
+        const emojis: Record<string, string> = {
+            happy: '😊',
+            sad: '😢',
+            angry: '😠',
+            neutral: '😐',
+            calm: '😌',
+            fearful: '😨',
+            disgust: '🤢',
+            surprised: '😲',
+        };
+        return emojis[emotion?.toLowerCase()] || '😐';
+    };
+
+    // Use detailed recording data if available, otherwise fall back to the basic recording prop
+    const displayRecording = detailedRecording || recording;
 
     if (!recording && !loading) return null;
 
@@ -153,99 +167,140 @@ export function RecordingDetailModal({
                 style={[
                     styles.bottomSheet,
                     {
-                        backgroundColor: Colors[colorScheme ?? 'light'].background,
+                        backgroundColor: colors.background,
                         transform: [{ translateY: slideAnim }],
                     }
                 ]}
             >
                 <View style={styles.dragHandleContainer}>
-                    <View style={[styles.dragHandle, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '40' }]} />
+                    <View style={[styles.dragHandle, { backgroundColor: colors.tabIconDefault + '40' }]} />
                 </View>
 
-                {loading ? (
+                {isLoadingDetails ? (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-                        <Text style={[styles.loadingText, { color: Colors[colorScheme ?? 'light'].text }]}>
-                            Loading recording...
+                        <ActivityIndicator size="large" color={colors.tint} />
+                        <Text style={[styles.loadingText, { color: colors.text }]}>
+                            Loading recording details...
                         </Text>
                     </View>
-                ) : recording && (
+                ) : error ? (
+                    <View style={styles.errorContainer}>
+                        <IconSymbol name="exclamationmark.triangle" size={48} color={UniversalColors.error} />
+                        <Text style={[styles.errorText, { color: colors.text }]}>
+                            {error}
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.retryButton, { backgroundColor: colors.tint }]}
+                            onPress={handleRetry}
+                        >
+                            <Text style={styles.retryButtonText}>Try Again</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : displayRecording && (
                     <View style={styles.content}>
                         <View style={styles.header}>
                             <View style={styles.titleRow}>
-                                <View style={[styles.emojiContainer, { backgroundColor: getEmotionColor(recording.latest_emotion?.emotion) + '20' }]}>
+                                <View style={[styles.emojiContainer, { backgroundColor: getEmotionColor(displayRecording.latest_emotion?.emotion, 0.2) }]}>
                                     <Text style={styles.emoji}>
-                                        {getEmotionEmoji(recording.latest_emotion?.emotion)}
+                                        {getEmotionEmoji(displayRecording.latest_emotion?.emotion)}
                                     </Text>
-
                                 </View>
                                 <View style={styles.titleContent}>
-                                    <Text style={[styles.emotionText, { color: Colors[colorScheme ?? 'light'].text }]}>
-                                        {recording.latest_emotion?.emotion?.toUpperCase() || 'UNKNOWN'}
+                                    <Text style={[styles.emotionText, { color: colors.text }]}>
+                                        {displayRecording.latest_emotion?.emotion?.toUpperCase() || 'UNKNOWN'}
                                     </Text>
-
-                                    <Text style={[styles.dateText, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
-                                        {formatDate(recording.uploaded_at)}
+                                    <Text style={[styles.dateText, { color: colors.tabIconDefault }]}>
+                                        {formatDate(displayRecording.uploaded_at)}
                                     </Text>
                                 </View>
                             </View>
                         
-                            {recording.latest_emotion && (
-                                <View style={[styles.confidenceBadge, { backgroundColor: getEmotionColor(recording.latest_emotion.emotion) + '20' }]}>
-                                    <Text style={[styles.confidenceText, { color: getEmotionColor(recording.latest_emotion.emotion) }]}>
-                                        {recording.latest_emotion.confidence.toFixed(1)}% confidence
+                            {displayRecording.latest_emotion && (
+                                <View style={[styles.confidenceBadge, { backgroundColor: getEmotionColor(displayRecording.latest_emotion.emotion, 0.2) }]}>
+                                    <Text style={[styles.confidenceText, { color: getEmotionColor(displayRecording.latest_emotion.emotion) }]}>
+                                        {displayRecording.latest_emotion.confidence.toFixed(1)}% confidence
                                     </Text>
                                 </View>
                             )}
                         </View>
 
-                        {recording.latest_emotion && recording.latest_emotion.probabilities && (
+                        {displayRecording.latest_emotion && displayRecording.latest_emotion.probabilities && (
                             <View style={styles.probabilitiesSection}>
-                                <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>
                                     Emotion Probabilities
                                 </Text>
                                 <View style={styles.probabilitiesGrid}>
-                                {Object.entries(recording.latest_emotion.probabilities)
-                                    .sort(([, a], [, b]) => b - a)
-                                    .slice(0, 6)
-                                    .map(([emotion, probability]) => (
-                                        <View key={emotion} style={styles.probabilityItem}>
-                                            <View style={styles.probabilityHeader}>
-                                                <Text style={[styles.probabilityEmotion, { color: Colors[colorScheme ?? 'light'].text }]}>
-                                                    {emotion}
-                                                </Text>
-
-                                                <Text style={[styles.probabilityValue, { color: getEmotionColor(emotion) }]}>
-                                                    {probability.toFixed(1)}%
-                                                </Text>
+                                    {Object.entries(displayRecording.latest_emotion.probabilities)
+                                        .sort(([, a], [, b]) => b - a)
+                                        .slice(0, 6)
+                                        .map(([emotion, probability]) => (
+                                            <View key={emotion} style={styles.probabilityItem}>
+                                                <View style={styles.probabilityHeader}>
+                                                    <Text style={[styles.probabilityEmotion, { color: colors.text }]}>
+                                                        {emotion}
+                                                    </Text>
+                                                    <Text style={[styles.probabilityValue, { color: getEmotionColor(emotion) }]}>
+                                                        {probability.toFixed(1)}%
+                                                    </Text>
+                                                </View>
+                                                <View style={[styles.probabilityBarContainer, { backgroundColor: colors.tabIconDefault + '20' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.probabilityBar,
+                                                            {
+                                                                width: `${probability}%`,
+                                                                backgroundColor: getEmotionColor(emotion),
+                                                            },
+                                                        ]}
+                                                    />
+                                                </View>
                                             </View>
-
-                                            <View style={[styles.probabilityBarContainer, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]}>
-                                                <View
-                                                    style={[
-                                                    styles.probabilityBar,
-                                                    {
-                                                        width: `${probability}%`,
-                                                        backgroundColor: getEmotionColor(emotion),
-                                                    },
-                                                    ]}
-                                                />
-                                            </View>
-                                        </View>
-                                    ))}
+                                        ))}
                                 </View>
                             </View>
                         )}
 
-                        {recording.ai_responses && recording.ai_responses.length > 0 && (
+                        {displayRecording.emotion_analyses && displayRecording.emotion_analyses.length > 0 && (
+                            <View style={styles.analysesSection}>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                    Analysis History
+                                </Text>
+                                <View style={styles.analysesList}>
+                                    {displayRecording.emotion_analyses
+                                        .sort((a, b) => new Date(b.analyzed_at).getTime() - new Date(a.analyzed_at).getTime())
+                                        .map((analysis, index) => (
+                                            <View key={index} style={[styles.analysisItem, { backgroundColor: colors.card }]}>
+                                                <View style={styles.analysisHeader}>
+                                                    <View style={styles.analysisEmotion}>
+                                                        <Text style={[styles.analysisEmoji, { fontSize: 16 }]}>
+                                                            {getEmotionEmoji(analysis.emotion)}
+                                                        </Text>
+                                                        <Text style={[styles.analysisEmotionText, { color: colors.text }]}>
+                                                            {analysis.emotion.toUpperCase()}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={[styles.analysisConfidence, { color: getEmotionColor(analysis.emotion) }]}>
+                                                        {analysis.confidence.toFixed(1)}%
+                                                    </Text>
+                                                </View>
+                                                <Text style={[styles.analysisDate, { color: colors.tabIconDefault }]}>
+                                                    {new Date(analysis.analyzed_at).toLocaleDateString()} • {new Date(analysis.analyzed_at).toLocaleTimeString()}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                </View>
+                            </View>
+                        )}
+
+                        {displayRecording.ai_responses && displayRecording.ai_responses.length > 0 && (
                             <View style={styles.aiSection}>
-                                <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
+                                <Text style={[styles.sectionTitle, { color: colors.text }]}>
                                     AI Insights
                                 </Text>
-                                {recording.ai_responses.map((response, index) => (
-                                    <View key={index} style={[styles.aiResponse, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-                                        <Text style={[styles.aiText, { color: Colors[colorScheme ?? 'light'].text }]}>
-                                            {response}
+                                {displayRecording.ai_responses.map((response, index) => (
+                                    <View key={index} style={[styles.aiResponse, { backgroundColor: colors.card }]}>
+                                        <Text style={[styles.aiText, { color: colors.text }]}>
+                                            {response.response || response}
                                         </Text>
                                     </View>
                                 ))}
@@ -254,18 +309,25 @@ export function RecordingDetailModal({
 
                         <View style={styles.actionsSection}>
                             <TouchableOpacity
-                                style={[styles.actionButton, styles.reanalyzeButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+                                style={[styles.actionButton, styles.reanalyzeButton, { backgroundColor: colors.tint }]}
                                 onPress={handleReanalyze}
+                                disabled={loading}
                             >
-                                <IconSymbol name="arrow.clockwise" size={20} color="#ffffff" />
-                                <Text style={styles.actionButtonText}>Reanalyze</Text>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color={UniversalColors.white} />
+                                ) : (
+                                    <>
+                                        <IconSymbol name="arrow.clockwise" size={20} color={UniversalColors.white} />
+                                        <Text style={styles.actionButtonText}>Reanalyze</Text>
+                                    </>
+                                )}
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.actionButton, styles.deleteButton, { backgroundColor: '#ef4444' }]}
+                                style={[styles.actionButton, styles.deleteButton, { backgroundColor: UniversalColors.error }]}
                                 onPress={handleDelete}
                             >
-                                <IconSymbol name="trash" size={20} color="#ffffff" />
+                                <IconSymbol name="trash" size={20} color={UniversalColors.white} />
                                 <Text style={styles.actionButtonText}>Delete</Text>
                             </TouchableOpacity>
                         </View>
@@ -293,7 +355,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         maxHeight: SCREEN_HEIGHT * 0.85,
         elevation: 24,
-        shadowColor: '#000',
+        shadowColor: UniversalColors.black,
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.25,
         shadowRadius: 16,
@@ -316,6 +378,27 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         fontWeight: '500',
+    },
+    errorContainer: {
+        padding: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    errorText: {
+        marginTop: 16,
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    retryButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    retryButtonText: {
+        color: UniversalColors.white,
+        fontSize: 16,
+        fontWeight: '600',
     },
     content: {
         padding: 24,
@@ -365,6 +448,9 @@ const styles = StyleSheet.create({
     probabilitiesSection: {
         marginBottom: 24,
     },
+    analysesSection: {
+        marginBottom: 24,
+    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
@@ -373,13 +459,46 @@ const styles = StyleSheet.create({
     probabilitiesGrid: {
         gap: 12,
     },
+    analysesList: {
+        gap: 8,
+    },
     probabilityItem: {
         gap: 6,
+    },
+    analysisItem: {
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 8,
     },
     probabilityHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    analysisHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    analysisEmotion: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    analysisEmoji: {
+        // Size controlled by inline style
+    },
+    analysisEmotionText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    analysisConfidence: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    analysisDate: {
+        fontSize: 12,
     },
     probabilityEmotion: {
         fontSize: 14,
@@ -431,7 +550,7 @@ const styles = StyleSheet.create({
         // Uses the red color from props
     },
     actionButtonText: {
-        color: '#ffffff',
+        color: UniversalColors.white,
         fontSize: 16,
         fontWeight: '600',
     },

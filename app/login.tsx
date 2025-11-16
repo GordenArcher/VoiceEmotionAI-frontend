@@ -1,7 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 export default function LoginScreen() {
-    const colorScheme = useColorScheme();
+    const { colorScheme } = useThemeContext();
     const router = useRouter();
     const { login } = useAuth();
     

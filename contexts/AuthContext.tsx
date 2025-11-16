@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from "expo-constants";
 import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
@@ -21,7 +22,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = Constants?.expoConfig?.extra?.API_URL;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -93,9 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             const data = await response.json();
-            await AsyncStorage.setItem('user_data', JSON.stringify(data.user));
-            
-            setUser(data.user);
+
+            Alert.alert(data?.message)
         } catch (error) {
             throw error;
         }

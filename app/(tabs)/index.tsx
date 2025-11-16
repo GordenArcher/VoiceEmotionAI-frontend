@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { Colors, UniversalColors, getEmotionColor } from '@/constants/theme';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { AnalysisResponse, apiService } from '@/services/api';
 import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
@@ -12,13 +13,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useThemeContext();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -30,6 +30,8 @@ export default function HomeScreen() {
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const slideAnim = useState(new Animated.Value(SCREEN_HEIGHT))[0];
   const pulseAnim = useState(new Animated.Value(1))[0];
+
+  const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
     requestPermissions();
@@ -215,34 +217,6 @@ export default function HomeScreen() {
     setRecordingDuration(0);
   };
 
-  const getEmotionColor = (emotion: string): string => {
-    const colors: Record<string, string> = {
-      happy: '#f59e0b',
-      sad: '#6366f1',
-      angry: '#ef4444',
-      neutral: '#6b7280',
-      calm: '#3b82f6',
-      fearful: '#8b5cf6',
-      disgust: '#10b981',
-      surprised: '#f97316',
-    };
-    return colors[emotion.toLowerCase()] || '#6b7280';
-  };
-
-  const getEmotionGradient = (emotion: string): [string, string] => {
-    const gradients: Record<string, [string, string]> = {
-      happy: ['#fbbf24', '#f59e0b'],
-      sad: ['#818cf8', '#6366f1'],
-      angry: ['#f87171', '#ef4444'],
-      neutral: ['#9ca3af', '#6b7280'],
-      calm: ['#60a5fa', '#3b82f6'],
-      fearful: ['#a78bfa', '#8b5cf6'],
-      disgust: ['#34d399', '#10b981'],
-      surprised: ['#fb923c', '#f97316'],
-    };
-    return gradients[emotion.toLowerCase()] || ['#9ca3af', '#6b7280'];
-  };
-
   const getEmotionEmoji = (emotion: string): string => {
     const emojis: Record<string, string> = {
       happy: '😊',
@@ -257,20 +231,16 @@ export default function HomeScreen() {
     return emojis[emotion.toLowerCase()] || '😐';
   };
 
-  const getCurrentColors = () => {
-    return Colors[colorScheme ?? 'light'];
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: getCurrentColors().background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: getCurrentColors().text }]}>
+        <Text style={[styles.title, { color: colors.text }]}>
           Voice Emotion
         </Text>
-        <Text style={[styles.title, { color: getCurrentColors().tint }]}>
+        <Text style={[styles.title, { color: colors.tint }]}>
           Recognition
         </Text>
-        <Text style={[styles.subtitle, { color: getCurrentColors().tabIconDefault }]}>
+        <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
           Record your voice to discover emotional insights
         </Text>
       </View>
@@ -278,26 +248,26 @@ export default function HomeScreen() {
       <View style={styles.recordingContainer}>
         {isAnalyzing ? (
           <View style={styles.analyzingContainer}>
-            <View style={[styles.analyzingCircle, { borderColor: getCurrentColors().tint }]}>
-              <ActivityIndicator size="large" color={getCurrentColors().tint} />
+            <View style={[styles.analyzingCircle, { borderColor: colors.tint }]}>
+              <ActivityIndicator size="large" color={colors.tint} />
             </View>
-            <Text style={[styles.analyzingText, { color: getCurrentColors().text }]}>
+            <Text style={[styles.analyzingText, { color: colors.text }]}>
               Analyzing emotions...
             </Text>
-            <Text style={[styles.analyzingSubtext, { color: getCurrentColors().tabIconDefault }]}>
+            <Text style={[styles.analyzingSubtext, { color: colors.tabIconDefault }]}>
               This may take a few moments
             </Text>
           </View>
         ) : recordingUri && !result ? (
           <View style={styles.previewContainer}>
-            <View style={[styles.previewHeader, { backgroundColor: getCurrentColors().tint + '15' }]}>
-              <IconSymbol name="checkmark.circle.fill" size={24} color={getCurrentColors().tint} />
-              <Text style={[styles.previewTitle, { color: getCurrentColors().text }]}>
+            <View style={[styles.previewHeader, { backgroundColor: colors.tint + '15' }]}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.tint} />
+              <Text style={[styles.previewTitle, { color: colors.text }]}>
                 Recording Complete!
               </Text>
             </View>
             
-            <Text style={[styles.previewSubtitle, { color: getCurrentColors().tabIconDefault }]}>
+            <Text style={[styles.previewSubtitle, { color: colors.tabIconDefault }]}>
               Duration: {formatTime(recordingDuration)}
             </Text>
 
@@ -307,8 +277,8 @@ export default function HomeScreen() {
                   styles.playButton,
                   {
                     backgroundColor: isPlaying 
-                      ? '#f59e0b' 
-                      : getCurrentColors().tint,
+                      ? UniversalColors.warning
+                      : colors.tint,
                   },
                 ]}
                 onPress={isPlaying ? stopPlayback : playRecording}
@@ -317,28 +287,30 @@ export default function HomeScreen() {
                 <IconSymbol
                   name={isPlaying ? 'pause.circle.fill' : 'play.circle.fill'}
                   size={70}
-                  color="#ffffff"
+                  color={UniversalColors.white}
                 />
-                <View style={[styles.playButtonGlow, { backgroundColor: isPlaying ? '#f59e0b' : getCurrentColors().tint }]} />
+                <View style={[styles.playButtonGlow, { 
+                  backgroundColor: isPlaying ? UniversalColors.warning : colors.tint 
+                }]} />
               </TouchableOpacity>
             </Animated.View>
 
             <View style={styles.previewActions}>
               <TouchableOpacity
-                style={[styles.previewActionButton, { backgroundColor: getCurrentColors().tabIconDefault + '20' }]}
+                style={[styles.previewActionButton, { backgroundColor: colors.tabIconDefault + '20' }]}
                 onPress={resetRecording}
               >
-                <IconSymbol name="x.circle" size={20} color={getCurrentColors().tabIconDefault} />
-                <Text style={[styles.previewActionText, { color: getCurrentColors().tabIconDefault }]}>
+                <IconSymbol name="x.circle" size={20} color={colors.tabIconDefault} />
+                <Text style={[styles.previewActionText, { color: colors.tabIconDefault }]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.analyzeButton, { backgroundColor: getCurrentColors().tint }]}
+                style={[styles.analyzeButton, { backgroundColor: colors.tint }]}
                 onPress={analyzeRecording}
               >
-                <IconSymbol name="sparkles" size={20} color="#ffffff" />
+                <IconSymbol name="sparkles" size={20} color={UniversalColors.white} />
                 <Text style={styles.analyzeButtonText}>Analyze Emotion</Text>
               </TouchableOpacity>
             </View>
@@ -347,10 +319,10 @@ export default function HomeScreen() {
           <View style={styles.micContainer}>
             {isRecording && (
               <View style={styles.timerContainer}>
-                <Text style={[styles.timerText, { color: getCurrentColors().text }]}>
+                <Text style={[styles.timerText, { color: colors.text }]}>
                   {formatTime(recordingDuration)}
                 </Text>
-                <View style={[styles.recordingIndicator, { backgroundColor: '#ef4444' }]}>
+                <View style={[styles.recordingIndicator, { backgroundColor: UniversalColors.error }]}>
                   <Text style={styles.recordingIndicatorText}>● RECORDING</Text>
                 </View>
               </View>
@@ -361,8 +333,8 @@ export default function HomeScreen() {
                   styles.recordButton,
                   {
                     backgroundColor: isRecording
-                      ? '#ef4444'
-                      : getCurrentColors().tint,
+                      ? UniversalColors.error
+                      : colors.tint,
                   },
                 ]}
                 onPress={isRecording ? stopRecording : startRecording}
@@ -371,10 +343,10 @@ export default function HomeScreen() {
                 <IconSymbol
                   name={isRecording ? 'stop.circle.fill' : 'mic.fill'}
                   size={60}
-                  color="#ffffff"
+                  color={UniversalColors.white}
                 />
                 <View style={[styles.recordButtonGlow, { 
-                  backgroundColor: isRecording ? '#ef4444' : getCurrentColors().tint 
+                  backgroundColor: isRecording ? UniversalColors.error : colors.tint 
                 }]} />
               </TouchableOpacity>
             </Animated.View>
@@ -382,7 +354,7 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <Text style={[styles.instruction, { color: getCurrentColors().tabIconDefault }]}>
+      <Text style={[styles.instruction, { color: colors.tabIconDefault }]}>
         {isRecording
           ? 'Tap to stop recording'
           : recordingUri && !result
@@ -397,13 +369,13 @@ export default function HomeScreen() {
           style={[
             styles.resultCard,
             {
-              backgroundColor: getCurrentColors().background,
+              backgroundColor: colors.background,
               transform: [{ translateY: slideAnim }],
             },
           ]}
         >
           <View style={styles.dragHandleContainer}>
-            <View style={[styles.dragHandle, { backgroundColor: getCurrentColors().tabIconDefault + '40' }]} />
+            <View style={[styles.dragHandle, { backgroundColor: colors.tabIconDefault + '40' }]} />
           </View>
 
           <View style={styles.resultContent}>
@@ -411,14 +383,14 @@ export default function HomeScreen() {
               <View style={[
                 styles.emojiCircle, 
                 { 
-                  backgroundColor: getEmotionColor(result.analysis.emotion) + '20',
-                  borderColor: getEmotionColor(result.analysis.emotion) + '40',
+                  backgroundColor: getEmotionColor(result.analysis.emotion, 0.2),
+                  borderColor: getEmotionColor(result.analysis.emotion, 0.4),
                 }
               ]}>
                 <Text style={styles.emoji}>{getEmotionEmoji(result.analysis.emotion)}</Text>
               </View>
               <View style={styles.emotionTextContainer}>
-                <Text style={[styles.emotionText, { color: getCurrentColors().text }]}>
+                <Text style={[styles.emotionText, { color: colors.text }]}>
                   {result.analysis.emotion.toUpperCase()}
                 </Text>
                 <Text style={[styles.confidenceText, { color: getEmotionColor(result.analysis.emotion) }]}>
@@ -429,8 +401,8 @@ export default function HomeScreen() {
 
             <View style={styles.probabilitiesContainer}>
               <View style={styles.sectionHeader}>
-                <IconSymbol name="chart.bar.fill" size={20} color={getCurrentColors().tint} />
-                <Text style={[styles.probabilitiesTitle, { color: getCurrentColors().text }]}>
+                <IconSymbol name="chart.bar.fill" size={20} color={colors.tint} />
+                <Text style={[styles.probabilitiesTitle, { color: colors.text }]}>
                   Emotion Breakdown
                 </Text>
               </View>
@@ -445,7 +417,7 @@ export default function HomeScreen() {
                           <Text style={[styles.probabilityEmoji, { fontSize: 18 }]}>
                             {getEmotionEmoji(emotion)}
                           </Text>
-                          <Text style={[styles.probabilityLabel, { color: getCurrentColors().text }]}>
+                          <Text style={[styles.probabilityLabel, { color: colors.text }]}>
                             {emotion}
                           </Text>
                         </View>
@@ -453,7 +425,7 @@ export default function HomeScreen() {
                           {prob.toFixed(1)}%
                         </Text>
                       </View>
-                      <View style={[styles.probabilityBarContainer, { backgroundColor: getCurrentColors().tabIconDefault + '20' }]}>
+                      <View style={[styles.probabilityBarContainer, { backgroundColor: colors.tabIconDefault + '20' }]}>
                         <View
                           style={[
                             styles.probabilityBar,
@@ -471,20 +443,20 @@ export default function HomeScreen() {
 
             <View style={styles.actionsContainer}>
               <TouchableOpacity
-                style={[styles.recordAgainButton, { backgroundColor: getCurrentColors().card }]}
+                style={[styles.recordAgainButton, { backgroundColor: colors.card }]}
                 onPress={resetRecording}
               >
-                <IconSymbol name="arrow.clockwise" size={20} color={getCurrentColors().tint} />
-                <Text style={[styles.recordAgainText, { color: getCurrentColors().tint }]}>
+                <IconSymbol name="arrow.clockwise" size={20} color={colors.tint} />
+                <Text style={[styles.recordAgainText, { color: colors.tint }]}>
                   Record Again
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: getCurrentColors().tint }]}
+                style={[styles.saveButton, { backgroundColor: colors.tint }]}
                 onPress={resetRecording}
               >
-                <IconSymbol name="checkmark.circle.fill" size={20} color="#ffffff" />
+                <IconSymbol name="checkmark.circle.fill" size={20} color={UniversalColors.white} />
                 <Text style={styles.saveButtonText}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -499,22 +471,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 150,
+    paddingTop: 60,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 60,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 46,
+    fontSize: 36,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginTop: 18,
+    marginTop: 8,
     lineHeight: 22,
   },
   recordingContainer: {
@@ -541,7 +513,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   recordingIndicatorText: {
-    color: '#ffffff',
+    color: UniversalColors.white,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -552,7 +524,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 12,
-    shadowColor: '#000',
+    shadowColor: UniversalColors.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -568,7 +540,7 @@ const styles = StyleSheet.create({
   instruction: {
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 150,
     fontWeight: '500',
   },
   analyzingContainer: {
@@ -620,7 +592,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 12,
-    shadowColor: '#000',
+    shadowColor: UniversalColors.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -661,13 +633,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 8,
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: UniversalColors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
   analyzeButtonText: {
-    color: '#ffffff',
+    color: UniversalColors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -681,7 +653,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     paddingBottom: 40,
     elevation: 24,
-    shadowColor: '#000',
+    shadowColor: UniversalColors.black,
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -793,13 +765,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 8,
     elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: UniversalColors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -812,10 +780,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 8,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   recordAgainText: {
     fontSize: 16,

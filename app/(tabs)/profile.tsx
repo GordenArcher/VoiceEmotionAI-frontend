@@ -1,13 +1,14 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { Colors, UniversalColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -33,9 +34,9 @@ interface UserProfile {
 }
 
 export default function ProfileScreen() {
-    const colorScheme = useColorScheme();
+    const { colorScheme, toggleColorScheme } = useThemeContext();
     const router = useRouter();
-    const { user, logout } = useAuth();
+    const { logout } = useAuth();
 
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -53,9 +54,19 @@ export default function ProfileScreen() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(colorScheme === 'dark');
 
+    const handleDarkModeToggle = (value: boolean) => {
+        setDarkModeEnabled(value);
+        toggleColorScheme();
+    };
+
+    useEffect(() => {
+        setDarkModeEnabled(colorScheme === 'dark');
+    }, [colorScheme]);
+
     useEffect(() => {
         loadProfile();
     }, []);
+
 
     const loadProfile = async () => {
         try {
@@ -157,8 +168,8 @@ export default function ProfileScreen() {
 
     const renderSectionHeader = (title: string, icon: string) => (
         <View style={styles.sectionHeader}>
-            <IconSymbol name={icon} size={20} color={Colors[colorScheme ?? 'light'].tint} />
-            <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
+            <IconSymbol name={icon} size={20} color={Colors[colorScheme].tint} />
+            <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
                 {title}
             </Text>
         </View>
@@ -170,36 +181,41 @@ export default function ProfileScreen() {
         onValueChange: (value: boolean) => void,
         icon: string
     ) => (
-        <View style={[styles.settingRow, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
+        <View style={[styles.settingRow, { backgroundColor: Colors[colorScheme].card }]}>
             <View style={styles.settingLeft}>
-                <IconSymbol name={icon} size={24} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
-                <Text style={[styles.settingLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
+                <IconSymbol name={icon} size={24} color={Colors[colorScheme].tabIconDefault} />
+                <Text style={[styles.settingLabel, { color: Colors[colorScheme].text }]}>
                     {label}
                 </Text>
             </View>
             <Switch
                 value={value}
                 onValueChange={onValueChange}
-                trackColor={{ false: '#767577', true: Colors[colorScheme ?? 'light'].tint }}
-                thumbColor="#ffffff"
+                trackColor={{ 
+                    false: UniversalColors.gray400, 
+                    true: UniversalColors.primaryLight 
+                }}
+                thumbColor={UniversalColors.white}
+                ios_backgroundColor={UniversalColors.gray400}
             />
         </View>
     );
 
     const renderInfoField = (label: string, value: string, field: string, multiline = false) => (
         <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+            <Text style={[styles.infoLabel, { color: Colors[colorScheme].tabIconDefault }]}>
                 {label}
             </Text>
+
             {isEditing ? (
                 <TextInput
                     style={[
                         styles.infoInput,
                         multiline && styles.multilineInput,
                         { 
-                            color: Colors[colorScheme ?? 'light'].text, 
-                            backgroundColor: Colors[colorScheme ?? 'light'].background,
-                            borderColor: Colors[colorScheme ?? 'light'].tabIconDefault + '30',
+                            color: Colors[colorScheme].text, 
+                            backgroundColor: Colors[colorScheme].inputBackground,
+                            borderColor: Colors[colorScheme].border,
                         }
                     ]}
                     value={value}
@@ -207,22 +223,210 @@ export default function ProfileScreen() {
                     multiline={multiline}
                     numberOfLines={multiline ? 4 : 1}
                     placeholder={`Enter ${label.toLowerCase()}...`}
-                    placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault + '60'}
+                    placeholderTextColor={Colors[colorScheme].tabIconDefault + '60'}
                     textAlignVertical={multiline ? 'top' : 'center'}
                 />
             ) : (
-                <Text style={[styles.infoValue, { color: Colors[colorScheme ?? 'light'].text }]}>
+                <Text style={[styles.infoValue, { color: Colors[colorScheme].text }]}>
                     {value || 'Not set'}
                 </Text>
             )}
         </View>
     );
 
+    const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [passwordErrors, setPasswordErrors] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+
+    const handlePasswordChange = (field: string, value: string) => {
+        setPasswordData(prev => ({ ...prev, [field]: value }));
+        // Clear error when user starts typing
+        if (passwordErrors[field as keyof typeof passwordErrors]) {
+            setPasswordErrors(prev => ({ ...prev, [field]: '' }));
+        }
+    };
+
+    const validatePasswordForm = () => {
+        const errors = {
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        };
+
+        if (!passwordData.currentPassword.trim()) {
+            errors.currentPassword = 'Current password is required';
+        }
+
+        if (!passwordData.newPassword.trim()) {
+            errors.newPassword = 'New password is required';
+        } else if (passwordData.newPassword.length < 6) {
+            errors.newPassword = 'Password must be at least 6 characters';
+        }
+
+        if (!passwordData.confirmPassword.trim()) {
+            errors.confirmPassword = 'Please confirm your new password';
+        } else if (passwordData.newPassword !== passwordData.confirmPassword) {
+            errors.confirmPassword = 'Passwords do not match';
+        }
+
+        setPasswordErrors(errors);
+        return !Object.values(errors).some(error => error !== '');
+    };
+
+    const handleChangePassword = async () => {
+        if (!validatePasswordForm()) {
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            const response = await apiService.changePassword({
+                current_password: passwordData.currentPassword,
+                new_password: passwordData.newPassword,
+                confirm_password: passwordData.confirmPassword,
+            });
+
+            Alert.alert('Success', response.message || 'Password changed successfully!');
+            setIsPasswordModalVisible(false);
+            setPasswordData({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+            });
+        } catch (error: any) {
+            console.log(error)
+            const errorMessage = error.response?.data?.message || 'Failed to change password';
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
+    const closePasswordModal = () => {
+        setIsPasswordModalVisible(false);
+        setPasswordData({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        });
+        setPasswordErrors({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        });
+    };
+
+    const renderPasswordInput = (label: string, field: keyof typeof passwordData, secureTextEntry = false) => (
+        <View style={styles.passwordInputContainer}>
+            <Text style={[styles.passwordLabel, { color: Colors[colorScheme].text }]}>
+                {label}
+            </Text>
+            <TextInput
+                style={[
+                    styles.passwordInput,
+                    {
+                        color: Colors[colorScheme].text,
+                        backgroundColor: Colors[colorScheme].inputBackground,
+                        borderColor: passwordErrors[field] ? UniversalColors.error : Colors[colorScheme].border,
+                    }
+                ]}
+                value={passwordData[field]}
+                onChangeText={(text) => handlePasswordChange(field, text)}
+                secureTextEntry={secureTextEntry}
+                placeholder={`Enter ${label.toLowerCase()}`}
+                placeholderTextColor={Colors[colorScheme].tabIconDefault + '60'}
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+            {passwordErrors[field] ? (
+                <Text style={styles.errorText}>{passwordErrors[field]}</Text>
+            ) : null}
+        </View>
+    );
+
+    const renderPasswordModal = () => (
+        <Modal
+            visible={isPasswordModalVisible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={closePasswordModal}
+        >
+            <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme].background }]}>
+                <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>
+                        Change Password
+                    </Text>
+                    <TouchableOpacity onPress={closePasswordModal}>
+                        <IconSymbol name="xmark" size={24} color={Colors[colorScheme].tabIconDefault} />
+                    </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.modalContent}>
+                    {renderPasswordInput('Current Password', 'currentPassword', true)}
+                    {renderPasswordInput('New Password', 'newPassword', true)}
+                    {renderPasswordInput('Confirm Password', 'confirmPassword', true)}
+
+                    <View style={styles.passwordRequirements}>
+                        <Text style={[styles.requirementsTitle, { color: Colors[colorScheme].text }]}>
+                            Password Requirements:
+                        </Text>
+                        <Text style={[styles.requirement, { color: Colors[colorScheme].tabIconDefault }]}>
+                            • At least 6 characters long
+                        </Text>
+                        <Text style={[styles.requirement, { color: Colors[colorScheme].tabIconDefault }]}>
+                            • Should not be the same as current password
+                        </Text>
+                    </View>
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                    <TouchableOpacity
+                        style={[styles.cancelButton, { backgroundColor: UniversalColors.gray200 }]}
+                        onPress={closePasswordModal}
+                        disabled={isChangingPassword}
+                    >
+                        <Text style={[styles.cancelButtonText, { color: UniversalColors.gray700 }]}>
+                            Cancel
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.saveButton,
+                            { backgroundColor: Colors[colorScheme].tint },
+                            isChangingPassword && styles.disabledButton
+                        ]}
+                        onPress={handleChangePassword}
+                        disabled={isChangingPassword}
+                    >
+                        {isChangingPassword ? (
+                            <ActivityIndicator color={UniversalColors.white} size="small" />
+                        ) : (
+                            <>
+                                <IconSymbol name="checkmark" size={16} color={UniversalColors.white} />
+                                <Text style={styles.saveButtonText}>Change Password</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
+
     if (isLoading) {
         return (
-            <View style={[styles.container, styles.centered, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-                <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-                <Text style={[styles.loadingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            <View style={[styles.container, styles.centered, { backgroundColor: Colors[colorScheme].background }]}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+                <Text style={[styles.loadingText, { color: Colors[colorScheme].text }]}>
                     Loading profile...
                 </Text>
             </View>
@@ -231,23 +435,22 @@ export default function ProfileScreen() {
 
     return (
         <ScrollView
-            style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}
+            style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
                 <RefreshControl
                     refreshing={isRefreshing}
                     onRefresh={onRefresh}
-                    tintColor={Colors[colorScheme ?? 'light'].tint}
-                    colors={[Colors[colorScheme ?? 'light'].tint]}
+                    tintColor={Colors[colorScheme].tint}
+                    colors={[Colors[colorScheme].tint]}
                 />
             }
         >
-            {/* Header Section */}
             <View style={styles.header}>
-                <View style={[styles.avatarContainer, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}>
+                <View style={[styles.avatarContainer, { backgroundColor: Colors[colorScheme].tint }]}>
                     {profile?.avatar ? (
-                        <Text style={styles.avatarText}>IMG</Text> // You can replace this with an actual Image component
+                        <Text style={styles.avatarText}>IMG</Text>
                     ) : (
                         <Text style={styles.avatarText}>
                             {profile?.display_name?.charAt(0)?.toUpperCase() || 
@@ -256,43 +459,42 @@ export default function ProfileScreen() {
                     )}
                 </View>
 
-                <Text style={[styles.userName, { color: Colors[colorScheme ?? 'light'].text }]}>
+                <Text style={[styles.userName, { color: Colors[colorScheme].text }]}>
                     {profile?.display_name || profile?.username || 'User'}
                 </Text>
-                <Text style={[styles.userEmail, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+                <Text style={[styles.userEmail, { color: Colors[colorScheme].tabIconDefault }]}>
                     {profile?.email || 'user@example.com'}
                 </Text>
                 
                 {profile?.total_recordings !== undefined && (
-                    <View style={[styles.recordingsBadge, { backgroundColor: Colors[colorScheme ?? 'light'].tint + '20' }]}>
-                        <IconSymbol name="waveform" size={16} color={Colors[colorScheme ?? 'light'].tint} />
-                        <Text style={[styles.recordingsText, { color: Colors[colorScheme ?? 'light'].tint }]}>
+                    <View style={[styles.recordingsBadge, { backgroundColor: Colors[colorScheme].tint + '20' }]}>
+                        <IconSymbol name="waveform" size={16} color={Colors[colorScheme].tint} />
+                        <Text style={[styles.recordingsText, { color: Colors[colorScheme].tint }]}>
                             {profile.total_recordings} recordings
                         </Text>
                     </View>
                 )}
             </View>
 
-            {/* Account Information Section */}
             {renderSectionHeader('Account Information', 'person.fill')}
             
-            <View style={[styles.infoCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
+            <View style={[styles.infoCard, { backgroundColor: Colors[colorScheme].card }]}>
                 {renderInfoField('Username', formData.username, 'username')}
-                <View style={[styles.divider, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]} />
+                <View style={[styles.divider, { backgroundColor: Colors[colorScheme].border }]} />
                 {renderInfoField('Email', formData.email, 'email')}
-                <View style={[styles.divider, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]} />
+                <View style={[styles.divider, { backgroundColor: Colors[colorScheme].border }]} />
                 {renderInfoField('First Name', formData.first_name, 'first_name')}
-                <View style={[styles.divider, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]} />
+                <View style={[styles.divider, { backgroundColor: Colors[colorScheme].border }]} />
                 {renderInfoField('Last Name', formData.last_name, 'last_name')}
-                <View style={[styles.divider, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]} />
+                <View style={[styles.divider, { backgroundColor: Colors[colorScheme].border }]} />
                 {renderInfoField('Display Name', formData.display_name, 'display_name')}
-                <View style={[styles.divider, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]} />
+                <View style={[styles.divider, { backgroundColor: Colors[colorScheme].border }]} />
                 {renderInfoField('Bio', formData.bio, 'bio', true)}
 
                 {isEditing ? (
                     <View style={styles.editButtons}>
                         <TouchableOpacity
-                            style={[styles.cancelButton, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault + '20' }]}
+                            style={[styles.cancelButton, { backgroundColor: UniversalColors.gray200 }]}
                             onPress={() => {
                                 setIsEditing(false);
                                 setFormData({
@@ -306,21 +508,21 @@ export default function ProfileScreen() {
                             }}
                             disabled={isSaving}
                         >
-                            <Text style={[styles.cancelButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>
+                            <Text style={[styles.cancelButtonText, { color: UniversalColors.gray700 }]}>
                                 Cancel
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.saveButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+                            style={[styles.saveButton, { backgroundColor: Colors[colorScheme].tint }]}
                             onPress={handleSaveProfile}
                             disabled={isSaving}
                         >
                             {isSaving ? (
-                                <ActivityIndicator color="#ffffff" size="small" />
+                                <ActivityIndicator color={UniversalColors.white} size="small" />
                             ) : (
                                 <>
-                                    <IconSymbol name="checkmark" size={16} color="#ffffff" />
+                                    <IconSymbol name="checkmark" size={16} color={UniversalColors.white} />
                                     <Text style={styles.saveButtonText}>Save</Text>
                                 </>
                             )}
@@ -328,16 +530,15 @@ export default function ProfileScreen() {
                     </View>
                 ) : (
                     <TouchableOpacity
-                        style={[styles.editButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+                        style={[styles.editButton, { backgroundColor: Colors[colorScheme].tint }]}
                         onPress={() => setIsEditing(true)}
                     >
-                        <IconSymbol name="pencil" size={16} color="#ffffff" />
+                        <IconSymbol name="pencil" size={16} color={UniversalColors.white} />
                         <Text style={styles.editButtonText}>Edit Profile</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
-            {/* Preferences Section */}
             {renderSectionHeader('Preferences', 'gearshape.fill')}
             
             {renderSettingRow(
@@ -350,60 +551,63 @@ export default function ProfileScreen() {
             {renderSettingRow(
                 'Dark Mode',
                 darkModeEnabled,
-                setDarkModeEnabled,
+                handleDarkModeToggle,
                 'moon.fill'
             )}
 
-            {/* Actions Section */}
             {renderSectionHeader('Actions', 'exclamationmark.triangle.fill')}
 
             <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}
-                onPress={() => Alert.alert('Change Password', 'This feature is coming soon!')}
+                style={[styles.actionButton, { backgroundColor: Colors[colorScheme].card }]}
+                onPress={() => setIsPasswordModalVisible(true)}
             >
-                <IconSymbol name="key.fill" size={24} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
-                <Text style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>
+                <IconSymbol name="key.fill" size={24} color={Colors[colorScheme].tabIconDefault} />
+                <Text style={[styles.actionButtonText, { color: Colors[colorScheme].text }]}>
                     Change Password
                 </Text>
-                <IconSymbol name="chevron.right" size={20} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
+                <IconSymbol name="chevron.right" size={20} color={Colors[colorScheme].tabIconDefault} />
             </TouchableOpacity>
 
             <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}
+                style={[styles.actionButton, { backgroundColor: Colors[colorScheme].card }]}
                 onPress={() => Alert.alert('Help & Support', 'Contact us at support@example.com')}
             >
-                <IconSymbol name="questionmark.circle.fill" size={24} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
-                <Text style={[styles.actionButtonText, { color: Colors[colorScheme ?? 'light'].text }]}>
+                <IconSymbol name="questionmark.circle.fill" size={24} color={Colors[colorScheme].tabIconDefault} />
+                <Text style={[styles.actionButtonText, { color: Colors[colorScheme].text }]}>
                     Help & Support
                 </Text>
-                <IconSymbol name="chevron.right" size={20} color={Colors[colorScheme ?? 'light'].tabIconDefault} />
+                <IconSymbol name="chevron.right" size={20} color={Colors[colorScheme].tabIconDefault} />
             </TouchableOpacity>
 
-            {/* Danger Zone */}
             {renderSectionHeader('Danger Zone', 'exclamationmark.triangle.fill')}
 
             <TouchableOpacity
-                style={[styles.dangerButton, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}
+                style={[styles.dangerButton, { 
+                    backgroundColor: UniversalColors.error + '10', 
+                    borderColor: UniversalColors.error + '30' 
+                }]}
                 onPress={handleDeleteAccount}
             >
-                <IconSymbol name="trash.fill" size={24} color="#dc2626" />
-                <Text style={[styles.dangerButtonText, { color: '#dc2626' }]}>
+                <IconSymbol name="trash.fill" size={24} color={UniversalColors.error} />
+                <Text style={[styles.dangerButtonText, { color: UniversalColors.error }]}>
                     Delete Account
                 </Text>
             </TouchableOpacity>
 
-            {/* Logout Button */}
             <TouchableOpacity
-                style={[styles.logoutButton, { backgroundColor: '#ef4444' }]}
+                style={[styles.logoutButton, { backgroundColor: UniversalColors.error }]}
                 onPress={handleLogout}
             >
-                <IconSymbol name="arrow.right.square.fill" size={24} color="#ffffff" />
+                <IconSymbol name="arrow.right.square.fill" size={24} color={UniversalColors.white} />
                 <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
 
-            <Text style={[styles.version, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+            <Text style={[styles.version, { color: Colors[colorScheme].tabIconDefault }]}>
                 Version 1.0.0
             </Text>
+
+            {renderPasswordModal()}
+
         </ScrollView>
     );
 }
@@ -436,16 +640,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
     },
     avatarText: {
         fontSize: 40,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: UniversalColors.white,
     },
     userName: {
         fontSize: 24,
@@ -482,13 +681,8 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     infoCard: {
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 20,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
     },
     infoRow: {
         marginBottom: 20,
@@ -509,14 +703,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         borderWidth: 1,
-        borderRadius: 12,
+        borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
     },
     multilineInput: {
         minHeight: 100,
@@ -532,17 +721,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         marginTop: 8,
         gap: 8,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
     },
     editButtonText: {
-        color: '#ffffff',
+        color: UniversalColors.white,
         fontSize: 16,
         fontWeight: '600',
     },
@@ -554,13 +738,8 @@ const styles = StyleSheet.create({
     cancelButton: {
         flex: 1,
         paddingVertical: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         alignItems: 'center',
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
     },
     cancelButtonText: {
         fontSize: 16,
@@ -569,19 +748,14 @@ const styles = StyleSheet.create({
     saveButton: {
         flex: 1,
         paddingVertical: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'center',
         gap: 8,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
     },
     saveButtonText: {
-        color: '#ffffff',
+        color: UniversalColors.white,
         fontSize: 16,
         fontWeight: '600',
     },
@@ -590,13 +764,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         marginBottom: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
     },
     settingLeft: {
         flexDirection: 'row',
@@ -611,13 +780,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         marginBottom: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
     },
     actionButtonText: {
         flex: 1,
@@ -629,15 +793,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 8,
         marginBottom: 12,
         borderWidth: 1,
         gap: 12,
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
     },
     dangerButtonText: {
         fontSize: 16,
@@ -648,17 +807,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 18,
-        borderRadius: 12,
+        borderRadius: 8,
         marginTop: 8,
         gap: 8,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
     },
     logoutButtonText: {
-        color: '#ffffff',
+        color: UniversalColors.white,
         fontSize: 18,
         fontWeight: '600',
     },
@@ -667,5 +821,68 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 24,
         marginBottom: 40,
+    },modalContainer: {
+        flex: 1,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: UniversalColors.gray300,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    modalContent: {
+        flex: 1,
+        padding: 20,
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 12,
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: UniversalColors.gray300,
+    },
+    passwordInputContainer: {
+        marginBottom: 20,
+    },
+    passwordLabel: {
+        fontSize: 16,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    passwordInput: {
+        fontSize: 16,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    errorText: {
+        color: UniversalColors.error,
+        fontSize: 14,
+        marginTop: 4,
+    },
+    passwordRequirements: {
+        marginTop: 20,
+        padding: 16,
+        borderRadius: 8,
+        backgroundColor: UniversalColors.gray300,
+    },
+    requirementsTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    requirement: {
+        fontSize: 14,
+        marginBottom: 4,
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
 });

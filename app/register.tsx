@@ -1,8 +1,7 @@
-
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { Colors, UniversalColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -19,7 +18,7 @@ import {
 } from 'react-native';
 
 export default function RegisterScreen() {
-    const colorScheme = useColorScheme();
+    const { colorScheme } = useThemeContext();
     const router = useRouter();
     const { register } = useAuth();
     
@@ -30,6 +29,8 @@ export default function RegisterScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    const colors = Colors[colorScheme ?? 'light'];
 
     const handleRegister = async () => {
         if (!username || !email || !password || !confirmPassword) {
@@ -61,21 +62,21 @@ export default function RegisterScreen() {
 
     return (
         <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={[styles.container, { backgroundColor: colors.background }]}
         >
         <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
         >
             <View style={styles.header}>
-            <View style={[styles.logoContainer, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}>
+            <View style={[styles.logoContainer, { backgroundColor: colors.tint }]}>
                 <IconSymbol name="person.crop.circle.fill" size={50} color="#ffffff" />
             </View>
-            <Text style={[styles.title, { color: Colors[colorScheme ?? 'light'].text }]}>
+            <Text style={[styles.title, { color: colors.text }]}>
                 Create Account
             </Text>
-            <Text style={[styles.subtitle, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+            <Text style={[styles.subtitle, { color: colors.tabIconDefault }]}>
                 Sign up to get started
             </Text>
             </View>
@@ -85,19 +86,20 @@ export default function RegisterScreen() {
                 <IconSymbol
                 name="person.fill"
                 size={20}
-                color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                color={colors.tabIconDefault}
                 style={styles.inputIcon}
                 />
                 <TextInput
                 style={[
                     styles.input,
                     {
-                    color: Colors[colorScheme ?? 'light'].text,
-                    backgroundColor: Colors[colorScheme ?? 'light'].card,
+                    color: colors.text,
+                    backgroundColor: colors.inputBackground || colors.card,
+                    borderColor: colors.border,
                     },
                 ]}
                 placeholder="Username"
-                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
+                placeholderTextColor={colors.tabIconDefault}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -109,19 +111,20 @@ export default function RegisterScreen() {
                 <IconSymbol
                 name="envelope.fill"
                 size={20}
-                color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                color={colors.tabIconDefault}
                 style={styles.inputIcon}
                 />
                 <TextInput
                 style={[
                     styles.input,
                     {
-                    color: Colors[colorScheme ?? 'light'].text,
-                    backgroundColor: Colors[colorScheme ?? 'light'].card,
+                    color: colors.text,
+                    backgroundColor: colors.inputBackground || colors.card,
+                    borderColor: colors.border,
                     },
                 ]}
                 placeholder="Email"
-                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
+                placeholderTextColor={colors.tabIconDefault}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -134,19 +137,20 @@ export default function RegisterScreen() {
                 <IconSymbol
                 name="lock.fill"
                 size={20}
-                color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                color={colors.tabIconDefault}
                 style={styles.inputIcon}
                 />
                 <TextInput
                 style={[
                     styles.input,
                     {
-                    color: Colors[colorScheme ?? 'light'].text,
-                    backgroundColor: Colors[colorScheme ?? 'light'].card,
+                    color: colors.text,
+                    backgroundColor: colors.inputBackground || colors.card,
+                    borderColor: colors.border,
                     },
                 ]}
                 placeholder="Password"
-                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
+                placeholderTextColor={colors.tabIconDefault}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -155,11 +159,12 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
                 >
                 <IconSymbol
                     name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
                     size={20}
-                    color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                    color={colors.tabIconDefault}
                 />
                 </TouchableOpacity>
             </View>
@@ -168,19 +173,20 @@ export default function RegisterScreen() {
                 <IconSymbol
                 name="lock.fill"
                 size={20}
-                color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                color={colors.tabIconDefault}
                 style={styles.inputIcon}
                 />
                 <TextInput
                 style={[
                     styles.input,
                     {
-                    color: Colors[colorScheme ?? 'light'].text,
-                    backgroundColor: Colors[colorScheme ?? 'light'].card,
+                    color: colors.text,
+                    backgroundColor: colors.inputBackground || colors.card,
+                    borderColor: colors.border,
                     },
                 ]}
                 placeholder="Confirm Password"
-                placeholderTextColor={Colors[colorScheme ?? 'light'].tabIconDefault}
+                placeholderTextColor={colors.tabIconDefault}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
@@ -189,43 +195,44 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
                 >
                 <IconSymbol
                     name={showConfirmPassword ? 'eye.slash.fill' : 'eye.fill'}
                     size={20}
-                    color={Colors[colorScheme ?? 'light'].tabIconDefault}
+                    color={colors.tabIconDefault}
                 />
                 </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+                style={[styles.registerButton, { backgroundColor: colors.tint }]}
                 onPress={handleRegister}
                 disabled={isLoading}
             >
                 {isLoading ? (
                 <ActivityIndicator color="#ffffff" />
                 ) : (
-                <Text style={styles.loginButtonText}>Create Account</Text>
+                <Text style={styles.registerButtonText}>Create Account</Text>
                 )}
             </TouchableOpacity>
 
             <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault }]} />
-                <Text style={[styles.dividerText, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.tabIconDefault }]}>
                 OR
                 </Text>
-                <View style={[styles.dividerLine, { backgroundColor: Colors[colorScheme ?? 'light'].tabIconDefault }]} />
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
             <TouchableOpacity
-                style={styles.registerLink}
+                style={styles.loginLink}
                 onPress={() => router.back()}
                 disabled={isLoading}
             >
-                <Text style={[styles.registerText, { color: Colors[colorScheme ?? 'light'].tabIconDefault }]}>
+                <Text style={[styles.loginText, { color: colors.tabIconDefault }]}>
                     Already have an account?{' '}
-                <Text style={{ color: Colors[colorScheme ?? 'light'].tint, fontWeight: '600' }}>
+                <Text style={{ color: colors.tint, fontWeight: '600' }}>
                     Sign In
                 </Text>
                 </Text>
@@ -256,14 +263,21 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
+        elevation: 4,
+        shadowColor: UniversalColors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     title: {
         fontSize: 32,
         fontWeight: 'bold',
         marginBottom: 8,
+        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
+        textAlign: 'center',
     },
     formContainer: {
         width: '100%',
@@ -285,21 +299,32 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 48,
         fontSize: 16,
+        borderWidth: 1,
+        elevation: 1,
+        shadowColor: UniversalColors.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
     },
     eyeIcon: {
         position: 'absolute',
         right: 15,
         padding: 8,
     },
-    loginButton: {
+    registerButton: {
         height: 56,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 8,
+        elevation: 3,
+        shadowColor: UniversalColors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
-    loginButtonText: {
-        color: '#ffffff',
+    registerButtonText: {
+        color: UniversalColors.white,
         fontSize: 18,
         fontWeight: '600',
     },
@@ -311,17 +336,17 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        opacity: 0.3,
     },
     dividerText: {
         marginHorizontal: 16,
         fontSize: 14,
+        fontWeight: '500',
     },
-    registerLink: {
+    loginLink: {
         alignItems: 'center',
         padding: 8,
     },
-    registerText: {
+    loginText: {
         fontSize: 15,
     },
 });
